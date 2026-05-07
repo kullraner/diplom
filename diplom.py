@@ -2,7 +2,7 @@ import pandas as pd
 import io
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from sqlalchemy.sql import func
@@ -78,7 +78,7 @@ class ApplicationCreate(BaseModel):
     priority: int = Field(..., ge=1, le=5)
 
 class AdminLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 @app.post("/api/admin/login")
@@ -288,7 +288,7 @@ async def index():
                                                     </td>
                                                 </tr>
                                             )) : (
-                                                <tr><td colSpan="4" className="py-10 text-center text-slate-500 font-bold italic uppercase tracking-widest">No candidates registered for this specialty</td></tr>
+                                                <tr><td colSpan="4" className="py-10 text-center text-slate-500 font-bold italic uppercase tracking-widest">No candidates registered</td></tr>
                                             )}
                                         </tbody>
                                     </table>
