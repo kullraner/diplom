@@ -1,7 +1,6 @@
 import pandas as pd
 import io
-import json
-from fastapi import FastAPI, Depends, HTTPException, Body
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, create_engine
@@ -37,7 +36,7 @@ Base.metadata.create_all(bind=engine)
 
 ADMIN_EMAIL = "kullraner128@gmail.com"
 ADMIN_PASSWORD = "17904880"
-ADMIN_TOKEN = "token_2026_secure_access"
+ADMIN_TOKEN = "secure_token_2026_admin"
 
 def get_db_session():
     db = SessionLocal()
@@ -86,7 +85,7 @@ class AdminLogin(BaseModel):
 async def admin_login(credentials: AdminLogin):
     if credentials.email == ADMIN_EMAIL and credentials.password == ADMIN_PASSWORD:
         return {"status": "success", "token": ADMIN_TOKEN}
-    raise HTTPException(status_code=401, detail="Invalid login or password")
+    raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.delete("/api/admin/application/{app_id}")
 async def delete_application(app_id: int, token: str, db: Session = Depends(get_db_session)):
@@ -132,7 +131,7 @@ async def get_specs(db: Session = Depends(get_db_session)):
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return f"""
+    return """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -148,131 +147,157 @@ async def index():
     <body class="bg-slate-950 text-white font-['Inter']">
         <div id="root"></div>
         <script type="text/babel">
-            const {{ useState, useEffect, useMemo, useRef }} = React;
-            function App() {{
+            const { useState, useEffect, useMemo, useRef } = React;
+            function App() {
                 const [specs, setSpecs] = useState([]);
                 const [ranking, setRanking] = useState([]);
                 const [sel, setSel] = useState("");
-                const [f, setF] = useState({{ name: '', score: 100, priority: 1 }});
+                const [f, setF] = useState({ name: '', score: 100, priority: 1 });
                 const [adminToken, setAdminToken] = useState(null);
                 const [isLoginOpen, setIsLoginOpen] = useState(false);
-                const [cred, setCred] = useState({{ email: '', password: '' }});
+                const [cred, setCred] = useState({ email: '', password: '' });
                 const chartRef = useRef(null);
                 const chartInstance = useRef(null);
 
-                useEffect(() => {{
-                    fetch('/api/specs').then(r => r.json()).then(d => {{ setSpecs(d); if(d.length) {{ setSel(d[0].id); load(d[0].id); }} }});
-                }}, []);
+                useEffect(() => {
+                    fetch('/api/specs').then(r => r.json()).then(d => { setSpecs(d); if(d.length) { setSel(d[0].id); load(d[0].id); } });
+                }, []);
 
-                useEffect(() => {{
-                    if (chartRef.current && ranking.length > 0) {{
+                useEffect(() => {
+                    if (chartRef.current && ranking.length > 0) {
                         const ctx = chartRef.current.getContext('2d');
                         if (chartInstance.current) chartInstance.current.destroy();
-                        chartInstance.current = new Chart(ctx, {{
+                        chartInstance.current = new Chart(ctx, {
                             type: 'bar',
-                            data: {{
+                            data: {
                                 labels: ranking.slice(0,5).map(r => r.name.split(' ')[0]),
-                                datasets: [{{ label: 'Score', data: ranking.slice(0,5).map(r => r.final_score), backgroundColor: '#6366f1', borderRadius: 8 }}]
-                            }},
-                            options: {{ responsive: true, maintainAspectRatio: false, plugins: {{ legend: {{ display: false }} }}, scales: {{ y: {{ display: false }}, x: {{ grid: {{ display: false }}, ticks: {{ color: '#94a3b8' }} }} }} }}
-                        }});
+                                datasets: [{ label: 'Score', data: ranking.slice(0,5).map(r => r.final_score), backgroundColor: '#6366f1', borderRadius: 8 }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } } }
+                        });
                     }
-                }}, [ranking]);
+                }, [ranking]);
 
                 const load = (id) => fetch('/api/ranking/'+id).then(r => r.json()).then(setRanking);
 
-                const login = (e) => {{
+                const login = (e) => {
                     e.preventDefault();
-                    fetch('/api/admin/login', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(cred) }})
-                    .then(r => r.json()).then(d => {{ if(d.token) {{ setAdminToken(d.token); setIsLoginOpen(false); }} else alert('Error'); }});
-                }};
+                    fetch('/api/admin/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(cred) })
+                    .then(r => r.json()).then(d => { if(d.token) { setAdminToken(d.token); setIsLoginOpen(false); } else alert('Invalid Credentials'); });
+                };
 
-                const del = (id) => {{
-                    if(confirm('Delete?')) fetch(`/api/admin/application/${{id}}?token=${{adminToken}}`, {{ method: 'DELETE' }}).then(() => load(sel));
-                }};
+                const del = (id) => {
+                    if(confirm('Delete this application?')) {
+                        fetch(`/api/admin/application/${id}?token=${adminToken}`, { method: 'DELETE' }).then(() => load(sel));
+                    }
+                };
 
                 return (
                     <div className="max-w-7xl mx-auto p-8">
                         <header className="flex justify-between items-center mb-12">
-                            <h1 class="text-4xl font-black italic text-indigo-500">EduPortal PRO</h1>
+                            <h1 className="text-4xl font-black italic text-indigo-500 underline decoration-indigo-800">EduPortal PRO</h1>
                             <div className="flex gap-4">
-                                {{adminToken ? 
-                                    <button onClick={() => setAdminToken(null)} className="bg-slate-800 px-6 py-2 rounded-xl text-xs font-bold uppercase">Logout</button> :
-                                    <button onClick={() => setIsLoginOpen(true)} className="bg-rose-600 px-6 py-2 rounded-xl text-xs font-bold uppercase shadow-lg shadow-rose-500/20">Admin Panel</button>
-                                }}
+                                {adminToken ? 
+                                    <button onClick={() => setAdminToken(null)} className="bg-slate-800 px-6 py-2 rounded-xl text-xs font-bold uppercase hover:bg-slate-700">Logout Admin</button> :
+                                    <button onClick={() => setIsLoginOpen(true)} className="bg-rose-600 px-6 py-2 rounded-xl text-xs font-bold uppercase shadow-lg shadow-rose-500/20 hover:bg-rose-700">Admin Panel</button>
+                                }
                             </div>
                         </header>
 
-                        {{isLoginOpen && (
-                            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                                <div className="bg-slate-900 p-10 rounded-3xl border border-slate-800 w-full max-w-md">
-                                    <h2 className="text-2xl font-black mb-6">Admin Login</h2>
-                                    <form onSubmit={{login}} className="space-y-4">
-                                        <input type="email" placeholder="Email" className="w-full bg-slate-800 p-4 rounded-xl outline-none" onChange={{e => setCred({{...cred, email: e.target.value}})}} />
-                                        <input type="password" placeholder="Password" className="w-full bg-slate-800 p-4 rounded-xl outline-none" onChange={{e => setCred({{...cred, password: e.target.value}})}} />
-                                        <button className="w-full bg-indigo-600 p-4 rounded-xl font-bold uppercase">Enter</button>
-                                        <button type="button" onClick={() => setIsLoginOpen(false)} className="w-full text-slate-500 text-sm">Cancel</button>
+                        {isLoginOpen && (
+                            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+                                <div className="bg-slate-900 p-10 rounded-3xl border border-slate-800 w-full max-w-md shadow-2xl">
+                                    <h2 className="text-2xl font-black mb-6 text-indigo-400">Admin Access</h2>
+                                    <form onSubmit={login} className="space-y-4">
+                                        <input type="email" placeholder="Email" className="w-full bg-slate-800 p-4 rounded-xl outline-none border border-transparent focus:border-indigo-500" onChange={e => setCred({...cred, email: e.target.value})} />
+                                        <input type="password" placeholder="Password" className="w-full bg-slate-800 p-4 rounded-xl outline-none border border-transparent focus:border-indigo-500" onChange={e => setCred({...cred, password: e.target.value})} />
+                                        <button className="w-full bg-indigo-600 p-4 rounded-xl font-bold uppercase hover:bg-indigo-700">Login</button>
+                                        <button type="button" onClick={() => setIsLoginOpen(false)} className="w-full text-slate-500 text-sm hover:text-white mt-2">Close</button>
                                     </form>
                                 </div>
                             </div>
-                        )}}
+                        )}
 
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                             <div className="lg:col-span-4 space-y-6">
                                 <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-                                    <h2 className="text-xl font-black mb-6 uppercase tracking-widest text-slate-400">Register</h2>
-                                    <form onSubmit={{(e) => {{ e.preventDefault(); fetch('/api/submit', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{...f, spec_id: parseInt(sel)}}) }}).then(() => {{ load(sel); setF({{...f, name: ''}}); }}); }} }} className="space-y-4">
-                                        <input placeholder="Student Name" value={{f.name}} className="w-full bg-slate-800 p-4 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500" onChange={{e => setF({{...f, name: e.target.value}})}} />
+                                    <h2 className="text-xl font-black mb-6 uppercase tracking-widest text-slate-400">Application Form</h2>
+                                    <form onSubmit={(e) => { 
+                                        e.preventDefault(); 
+                                        fetch('/api/submit', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...f, spec_id: parseInt(sel)}) })
+                                        .then(r => { if(r.ok) { load(sel); setF({...f, name: ''}); } else alert('Error: Check score (0-100)'); });
+                                    }} className="space-y-4">
+                                        <input placeholder="Student Full Name" value={f.name} className="w-full bg-slate-800 p-4 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500" onChange={e => setF({...f, name: e.target.value})} />
                                         <div className="flex gap-4">
-                                            <input type="number" placeholder="Score (0-100)" className="w-full bg-slate-800 p-4 rounded-2xl outline-none" onChange={{e => setF({{...f, score: parseFloat(e.target.value)}})}} />
-                                            <select className="bg-slate-800 p-4 rounded-2xl outline-none" onChange={{e => setF({{...f, priority: parseInt(e.target.value)}})}}>
-                                                {[1,2,3,4,5].map(p => <option value={{p}}>P:{{p}}</option>)}
-                                            </select>
+                                            <div className="w-full">
+                                                <label className="text-[10px] text-slate-500 font-bold uppercase ml-1 mb-1 block">Score (0-100)</label>
+                                                <input type="number" placeholder="0-100" className="w-full bg-slate-800 p-4 rounded-2xl outline-none" onChange={e => setF({...f, score: parseFloat(e.target.value)})} />
+                                            </div>
+                                            <div className="w-32">
+                                                <label className="text-[10px] text-slate-500 font-bold uppercase ml-1 mb-1 block">Priority</label>
+                                                <select className="w-full bg-slate-800 p-4 rounded-2xl outline-none" onChange={e => setF({...f, priority: parseInt(e.target.value)})}>
+                                                    {[1,2,3,4,5].map(p => <option key={p} value={p}>P:{p}</option>)}
+                                                </select>
+                                            </div>
                                         </div>
-                                        <select className="w-full bg-slate-800 p-4 rounded-2xl outline-none" value={{sel}} onChange={{e => {{ setSel(e.target.value); load(e.target.value); }} }}>
-                                            {{specs.map(s => <option value={{s.id}}>{{s.code}} | {{s.name}}</option>)}}
+                                        <select className="w-full bg-slate-800 p-4 rounded-2xl outline-none" value={sel} onChange={e => { setSel(e.target.value); load(e.target.value); }}>
+                                            {specs.map(s => <option key={s.id} value={s.id}>{s.code} | {s.name}</option>)}
                                         </select>
-                                        <button className="w-full bg-indigo-600 p-5 rounded-2xl font-black uppercase shadow-xl shadow-indigo-500/20">Submit</button>
+                                        <button className="w-full bg-indigo-600 p-5 rounded-2xl font-black uppercase shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 active:scale-95 transition-all">Register Applicant</button>
                                     </form>
                                 </div>
                                 <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 h-64">
-                                    <canvas ref={{chartRef}}></canvas>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-4 text-center">Top 5 Performance</p>
+                                    <canvas ref={chartRef}></canvas>
                                 </div>
                             </div>
 
-                            <div className="lg:col-span-8 bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-                                <div className="flex justify-between items-center mb-8">
-                                    <input placeholder="Search..." className="bg-slate-800 px-6 py-4 rounded-2xl outline-none w-64" onChange={{e => setRanking(ranking.filter(r => r.name.toLowerCase().includes(e.target.value.toLowerCase())))}} />
-                                    <button onClick={() => window.location.href = `/api/export/${{sel}}`} className="bg-emerald-600 px-6 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/20">Excel</button>
+                            <div className="lg:col-span-8 bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 shadow-2xl overflow-hidden">
+                                <div className="flex justify-between items-center mb-8 gap-4">
+                                    <div className="relative flex-1">
+                                        <input placeholder="Search applicants..." className="bg-slate-800 pl-12 pr-6 py-4 rounded-2xl outline-none w-full border border-transparent focus:border-indigo-500" onChange={e => {
+                                            const val = e.target.value.toLowerCase();
+                                            if(!val) load(sel);
+                                            else setRanking(ranking.filter(r => r.name.toLowerCase().includes(val)));
+                                        }} />
+                                        <span className="absolute left-4 top-4 opacity-30 text-xl">🔍</span>
+                                    </div>
+                                    <button onClick={() => window.location.href = `/api/export/${sel}`} className="bg-emerald-600 px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-700">Export Excel</button>
                                 </div>
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-800">
-                                            <th className="pb-4 text-left">Applicant</th>
-                                            <th className="pb-4 text-center">Score</th>
-                                            <th className="pb-4 text-right">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-800">
-                                        {{ranking.map(r => (
-                                            <tr key={{r.id}} className="group">
-                                                <td className="py-5 font-bold">{{r.name}} <span className="text-[9px] text-indigo-400 ml-2">P:{{r.priority}}</span></td>
-                                                <td className="py-5 text-center font-black text-indigo-500 text-lg">{{r.final_score.toFixed(1)}}</td>
-                                                <td className="py-5 text-right">
-                                                    {{adminToken ? 
-                                                        <button onClick={() => del(r.id)} className="text-rose-500 text-xs font-black uppercase hover:scale-110 transition-transform">Delete</button> :
-                                                        <span className="text-[10px] px-3 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg font-black uppercase tracking-tighter">{{r.status}}</span>
-                                                    }}
-                                                </td>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-800">
+                                                <th className="pb-4 text-left px-2">Rank</th>
+                                                <th className="pb-4 text-left">Applicant Name</th>
+                                                <th className="pb-4 text-center">Final Score</th>
+                                                <th className="pb-4 text-right">Action</th>
                                             </tr>
-                                        ))}}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800">
+                                            {ranking.length > 0 ? ranking.map((r, idx) => (
+                                                <tr key={r.id} className="hover:bg-indigo-500/5 transition-all">
+                                                    <td className="py-5 font-black text-slate-500 px-2">#{idx+1}</td>
+                                                    <td className="py-5 font-bold">{r.name} <span className="text-[9px] text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded-md ml-2">PRIORITY {r.priority}</span></td>
+                                                    <td className="py-5 text-center font-black text-indigo-500 text-lg">{r.final_score.toFixed(1)}</td>
+                                                    <td className="py-5 text-right">
+                                                        {adminToken ? 
+                                                            <button onClick={() => del(r.id)} className="bg-rose-500/10 text-rose-500 px-4 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-rose-500 hover:text-white transition-all">Delete Record</button> :
+                                                            <span className={`text-[10px] px-3 py-1 rounded-lg font-black uppercase tracking-tighter ${r.status === 'Budget' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>{r.status}</span>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            )) : (
+                                                <tr><td colSpan="4" className="py-10 text-center text-slate-500 font-bold italic uppercase tracking-widest">No candidates registered for this specialty</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
                 );
-            }}
+            }
             ReactDOM.createRoot(document.getElementById('root')).render(<App />);
         </script>
     </body>
@@ -280,4 +305,4 @@ async def index():
     """
 
 if __name__ == "__main__":
-    uvicorn.run("diplom:app", host="127.0.0.1", port=8080, reload=True)
+    uvicorn.run("diplom:app", host="0.0.0.0", port=8080)
